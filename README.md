@@ -6,7 +6,7 @@
 
 * https://docs.duckietown.com/daffy/opmanual-duckiebot/setup/setup_laptop/index.html
 
-* https://github.com/duckietown/gym-duckietown
+* https://github.com/duckietown/gym-duckietown -> clone this to this dir
 
 ## Gym Requirements
 
