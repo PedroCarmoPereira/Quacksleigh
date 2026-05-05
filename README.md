@@ -34,3 +34,8 @@ install_requires = [
 
 * See `simulator.py`
 
+## To Run
+
+* `python gym-duckietown/manual_control.py --env-name Duckietown-udem1-v0`
+
+
