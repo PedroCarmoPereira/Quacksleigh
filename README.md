@@ -30,3 +30,7 @@ install_requires = [
 ]
 ```
 
+## Reward Function
+
+* See `simulator.py`
+
