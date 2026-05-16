@@ -31,7 +31,8 @@ parser.add_argument("--frame-skip", default=1, type=int, help="number of frames 
 parser.add_argument("--seed", default=1, type=int, help="seed")
 args = parser.parse_args()
 
-if args.env_name and args.env_name.find("Duckietown") != -1:
+# Default (no --env-name): use local DuckietownEnv; gym.make(None) would crash.
+if not args.env_name or "Duckietown" in args.env_name:
     env = DuckietownEnv(
         seed=args.seed,
         map_name=args.map_name,

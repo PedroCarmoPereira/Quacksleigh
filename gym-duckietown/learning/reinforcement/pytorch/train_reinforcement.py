@@ -7,9 +7,17 @@ import numpy as np
 
 # Duckietown Specific
 from reinforcement.pytorch.ddpg import DDPG
-from reinforcement.pytorch.utils import seed, evaluate_policy, ReplayBuffer
+from reinforcement.pytorch.rl_utils import seed, evaluate_policy, ReplayBuffer
 from utils.env import launch_env
-from utils.wrappers import NormalizeWrapper, ImgWrapper, DtRewardWrapper, ActionWrapper, ResizeWrapper
+from utils.wrappers import (
+    NormalizeWrapper,
+    ImgWrapper,
+    DtRewardWrapper,
+    ActionWrapper,
+    ResizeWrapper,
+    reset_env,
+    step_env,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -81,7 +89,7 @@ def _train(args):
 
             # Reset environment
             env_counter += 1
-            obs = env.reset()
+            obs = reset_env(env)
             done = False
             episode_reward = 0
             episode_num += 1
@@ -97,7 +105,7 @@ def _train(args):
                 )
 
         # Perform action
-        new_obs, reward, done, _ = env.step(action)
+        new_obs, reward, done, _ = step_env(env, action)
 
         if episode_timesteps >= args.env_timesteps:
             done = True

@@ -8,7 +8,15 @@ import numpy as np
 # Duckietown Specific
 from reinforcement.pytorch.ddpg import DDPG
 from utils.env import launch_env
-from utils.wrappers import NormalizeWrapper, ImgWrapper, DtRewardWrapper, ActionWrapper, ResizeWrapper
+from utils.wrappers import (
+    NormalizeWrapper,
+    ImgWrapper,
+    DtRewardWrapper,
+    ActionWrapper,
+    ResizeWrapper,
+    reset_env,
+    step_env,
+)
 
 
 def _enjoy():
@@ -32,17 +40,17 @@ def _enjoy():
     policy = DDPG(state_dim, action_dim, max_action, net_type="cnn")
     policy.load(filename="ddpg", directory="reinforcement/pytorch/models/")
 
-    obs = env.reset()
+    obs = reset_env(env)
     done = False
 
     while True:
         while not done:
             action = policy.predict(np.array(obs))
             # Perform action
-            obs, reward, done, _ = env.step(action)
+            obs, reward, done, _ = step_env(env, action)
             env.render()
         done = False
-        obs = env.reset()
+        obs = reset_env(env)
 
 
 if __name__ == "__main__":

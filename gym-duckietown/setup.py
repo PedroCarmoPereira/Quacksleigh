@@ -26,10 +26,12 @@ line = "daffy"
 install_requires = [
     "gym>=0.17.1",
     "numpy>=1.10.0,<=1.20.0",
-    "pyglet",
+    "pyglet==1.5.11",
     # 'pyglet',
     "pyzmq>=16.0.0",
-    "opencv-python>=3.4",
+    # opencv-python>=4.7 has no py36 wheels; newer releases only ship sdists (source build).
+    "opencv-python>=3.4,<4.7; python_version<'3.7'",
+    "opencv-python>=3.4; python_version>='3.7'",
     "PyYAML>=3.11",
     f"duckietown-world-{line}",
     "PyGeometry-z6",

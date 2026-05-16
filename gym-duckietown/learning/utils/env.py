@@ -1,6 +1,8 @@
 import gym
 import gym_duckietown
 
+from utils.wrappers import LegacyGymCompatWrapper
+
 
 def launch_env(id=None):
     env = None
@@ -22,4 +24,4 @@ def launch_env(id=None):
     else:
         env = gym.make(id)
 
-    return env
+    return LegacyGymCompatWrapper(env)

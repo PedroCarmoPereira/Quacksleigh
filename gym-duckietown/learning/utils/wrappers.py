@@ -5,6 +5,42 @@ import numpy as np
 from gym_duckietown.simulator import Simulator
 
 
+def reset_env(env, **kwargs):
+    """Return observation only; works with gym<0.26 and gym>=0.26."""
+    result = env.reset(**kwargs)
+    if isinstance(result, tuple):
+        return result[0]
+    return result
+
+
+def step_env(env, action):
+    """Return (obs, reward, done, info); works with gym<0.26 and gym>=0.26."""
+    result = env.step(action)
+    if len(result) == 5:
+        obs, reward, terminated, truncated, info = result
+        return obs, reward, bool(terminated or truncated), info
+    return result
+
+
+class LegacyGymCompatWrapper(gym.Wrapper):
+    """Adapt duckietown's legacy env API for gym>=0.26 wrappers."""
+
+    def reset(self, **kwargs):
+        result = self.env.reset(**kwargs)
+        if isinstance(result, tuple) and len(result) == 2:
+            return result
+        return result, {}
+
+    def step(self, action):
+        result = self.env.step(action)
+        if len(result) == 4:
+            obs, reward, done, info = result
+            if info is None:
+                info = {}
+            return obs, reward, bool(done), False, info
+        return result
+
+
 class MotionBlurWrapper(Simulator):
     def __init__(self, env=None):
         Simulator.__init__(self)
@@ -39,19 +75,21 @@ class MotionBlurWrapper(Simulator):
 class ResizeWrapper(gym.ObservationWrapper):
     def __init__(self, env=None, shape=(120, 160, 3)):
         super(ResizeWrapper, self).__init__(env)
-        self.observation_space.shape = shape
+        obs_space = self.observation_space
         self.observation_space = spaces.Box(
-            self.observation_space.low[0, 0, 0],
-            self.observation_space.high[0, 0, 0],
+            obs_space.low[0, 0, 0],
+            obs_space.high[0, 0, 0],
             shape,
-            dtype=self.observation_space.dtype,
+            dtype=obs_space.dtype,
         )
         self.shape = shape
 
     def observation(self, observation):
-        from scipy.misc import imresize
+        from PIL import Image
 
-        return imresize(observation, self.shape)
+        height, width = self.shape[0], self.shape[1]
+        resized = Image.fromarray(observation).resize((width, height), Image.BILINEAR)
+        return np.asarray(resized)
 
 
 class NormalizeWrapper(gym.ObservationWrapper):
