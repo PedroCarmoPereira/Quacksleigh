@@ -138,9 +138,9 @@ class CriticCNN(nn.Module):
 
 
 class DDPG(object):
-    def __init__(self, state_dim, action_dim, max_action, net_type):
+    def __init__(self, state_dim, action_dim, max_action, net_type, actor_lr=1e-4, critic_lr=1e-3):
         super(DDPG, self).__init__()
-        print("Starting DDPG init")
+        print("Starting DDPG init (actor_lr={}, critic_lr={})".format(actor_lr, critic_lr))
         assert net_type in ["cnn", "dense"]
 
         self.state_dim = state_dim
@@ -156,7 +156,7 @@ class DDPG(object):
 
         print("Initialized Actor")
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
         print("Initialized Target+Opt [Actor]")
         if net_type == "dense":
             self.critic = CriticDense(state_dim, action_dim).to(device)
@@ -166,7 +166,7 @@ class DDPG(object):
             self.critic_target = CriticCNN(action_dim).to(device)
         print("Initialized Critic")
         self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
         print("Initialized Target+Opt [Critic]")
 
     def predict(self, state):
@@ -181,6 +181,8 @@ class DDPG(object):
         return self.actor(state).cpu().data.numpy().flatten()
 
     def train(self, replay_buffer, iterations, batch_size=64, discount=0.99, tau=0.001):
+        critic_losses = []
+        actor_losses = []
 
         for it in range(iterations):
 
@@ -221,6 +223,11 @@ class DDPG(object):
 
             for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                 target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+            critic_losses.append(critic_loss.item())
+            actor_losses.append(actor_loss.item())
+
+        return float(np.mean(critic_losses)), float(np.mean(actor_losses))
 
     def save(self, filename, directory):
         print("Saving to {}/{}_[actor|critic].pth".format(directory, filename))

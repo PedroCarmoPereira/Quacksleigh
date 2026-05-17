@@ -123,18 +123,18 @@ class ImgWrapper(gym.ObservationWrapper):
 
 
 class DtRewardWrapper(gym.RewardWrapper):
-    def __init__(self, env):
+    def __init__(self, env, idle_penalty=0.1, forward_bonus=10.0, crash_reward=-10.0):
         super(DtRewardWrapper, self).__init__(env)
+        self.idle_penalty = idle_penalty
+        self.forward_bonus = forward_bonus
+        self.crash_reward = crash_reward
 
     def reward(self, reward):
         if reward == -1000:
-            reward = -10
-        elif reward > 0:
-            reward += 10
-        else:
-            reward += 4
-
-        return reward
+            return self.crash_reward
+        if reward > 0:
+            return reward + self.forward_bonus
+        return reward - self.idle_penalty
 
 
 # this is needed because at max speed the duckie can't turn anymore
