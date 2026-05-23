@@ -22,7 +22,7 @@ from config.config import load_config, print_config, dump_config, update_config,
 from duckietown_utils.env import launch_and_wrap_env
 from duckietown_utils.utils import seed
 from duckietown_utils.rllib_callbacks import on_episode_start, on_episode_step, on_episode_end, on_train_result
-from duckietown_utils.rllib_loggers import TensorboardImageLogger, WeightsAndBiasesLogger
+# from duckietown_utils.rllib_loggers import TensorboardImageLogger, WeightsAndBiasesLogger
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -36,10 +36,16 @@ seed(1234)
 
 ###########################################################
 # Set up experiment parameters
-config_updates = {"seed": 0000,
-                  "experiment_name": "Debug",
-                  "env_config": {},
-                  "rllib_config": {}
+config_updates = {"seed": 1118,  # Arbitrary unique identifyer of the run
+                  "experiment_name": "DomainRandomised",
+                  "env_config": {"domain_rand": True,
+                                 "dynamics_rand": True,
+                                 "camera_rand": True},
+                  "rllib_config": {
+                    "evaluation_interval": None,
+                    "num_gpus": 0 # this was the issue, my GPU is incompatible and sillently fails
+                  },
+                  "timesteps_total": 2.e+6,
                   }
 update_config(config, config_updates)
 
@@ -99,6 +105,6 @@ tune.run(PPOTrainer,
          checkpoint_score_attr="episode_reward_mean",
          checkpoint_freq=1,
          restore=checkpoint_path,
-         loggers=[CSVLogger, TBXLogger, TensorboardImageLogger, WeightsAndBiasesLogger]
+         loggers=[CSVLogger, TBXLogger]
          )
 
