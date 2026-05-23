@@ -1,7 +1,7 @@
 
 
 # Duckietown-RL
-
+https://deepwiki.com/search/how-do-i-set-these-set-up-expe_abef42e7-6bc4-437e-9617-0afa79435608
 This repository contains code for our papers:
 
 | <a href="https://acta.imeko.org/index.php/acta-imeko/article/view/IMEKO-ACTA-10%20%282021%29-03-04"><img src=".github/PaperPictureActaImeko.png" width="200"/></a> | [*Vision-based reinforcement learning for lane-tracking control*](https://acta.imeko.org/index.php/acta-imeko/article/view/IMEKO-ACTA-10%20%282021%29-03-04) <br/> András Kalapos, Csaba Gór, Róbert Moni, István Harmati <br/> *ACTA IMEKO*, vol. 10, no. 3, Art. no. 3, 2021.<br /><br /> :point_left: Extended journal paper, including the results of AIDO 5 |
@@ -301,3 +301,22 @@ Reward functions
 ## Copyright
 
 The hardware used in our experiments and parts of the software was developed by the [Duckietown project](https://www.duckietown.org). Software components in this repository may partially be copied or derived from the [Duckietown project's repositories](https://github.com/duckietown). 
+
+
+# Commands
+  docker stop   duckietown-rl-headless
+  docker build . --tag   duckietown-rl-headless --no-cache
+  docker run --rm -dt --gpus all --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name   duckietown-rl-headless duckietown-rl-headless
+  ssh -X -A -p 2233 duckie@localhost
+
+
+  docker run --rm -dt --gpus all --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name duckietown-rl-headless duckietown-rl-headless
+
+  testing in container: SDL_VIDEODRIVER= python -m experiments.test-rllib --seed-model-id 1234
+
+if more than one run in a day  find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0)
+
+change preselected_experiment_idx
+
+  python -m experiments.train-rllib 2>&1 | tee log.log
+
