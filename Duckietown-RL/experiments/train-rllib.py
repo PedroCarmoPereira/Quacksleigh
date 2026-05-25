@@ -40,7 +40,8 @@ config_updates = {"seed": 1118,  # Arbitrary unique identifyer of the run
                   "experiment_name": "DomainRandomised",
                   "env_config": {"domain_rand": True,
                                  "dynamics_rand": True,
-                                 "camera_rand": True},
+                                 "camera_rand": True,
+                                 "grayscale_image":True},
                   "rllib_config": {
                     "evaluation_interval": None,
                     "num_gpus": 0 # this was the issue, my GPU is incompatible and sillently fails

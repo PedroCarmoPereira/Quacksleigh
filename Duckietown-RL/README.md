@@ -306,7 +306,7 @@ The hardware used in our experiments and parts of the software was developed by 
 # Commands
   docker stop   duckietown-rl-headless
   docker build . --tag   duckietown-rl-headless --no-cache
-  docker run --rm -dt --gpus all --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name   duckietown-rl-headless duckietown-rl-headless
+  docker run --rm -dt -v ./artifacts:/home/duckie/Duckietown-RL/artifacts --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name   duckietown-rl-headless duckietown-rl-headless
   ssh -X -A -p 2233 duckie@localhost
 
 
