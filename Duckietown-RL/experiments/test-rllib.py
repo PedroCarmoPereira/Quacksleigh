@@ -50,7 +50,7 @@ parser.add_argument('--visualize-dot-trajectories', action='store_true',
 parser.add_argument('--reward-plots', action='store_true',
                     help='Simulate closed loop behaviour and show time-plots of the reward, '
                          'distance between vehicles, etc.')
-parser.add_argument('--map-name', default=DEFAULT_EVALUATION_MAP, help="Specify the map")
+parser.add_argument('--map-name', default='loop_dyn_duckiebots', help="Specify the map")
 parser.add_argument('--domain-rand', action='store_true', help='Enable domain randomization')
 parser.add_argument('--top-view', action='store_true',
                     help="View the simulation from a fixed bird's eye view, instead of the robot's view")

@@ -308,10 +308,6 @@ The hardware used in our experiments and parts of the software was developed by 
   docker build . --tag   duckietown-rl-headless --no-cache
   docker run --rm -dt -v ./artifacts:/home/duckie/Duckietown-RL/artifacts --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name   duckietown-rl-headless duckietown-rl-headless
   ssh -X -A -p 2233 duckie@localhost
-
-
-  docker run --rm -dt --gpus all --ipc=host --shm-size=2g -p 2233:22 -p 7000:7000 -p 7001:7001 --name duckietown-rl-headless duckietown-rl-headless
-
   testing in container: SDL_VIDEODRIVER= python -m experiments.test-rllib --seed-model-id 1234
 
 if more than one run in a day  find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0)
