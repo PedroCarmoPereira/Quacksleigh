@@ -38,7 +38,7 @@ os.environ['CUDA_VISIBLE_DEVICES']=''
 ###########################################################
 # Read and process command line arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-s', '--seed-model-id', default=3045, type=int,
+parser.add_argument('-s', '--seed-model-id', default=1118, type=int,
                     help='Unique experiment identifier, referred to as seed (incorrectly)'
                          'A 4 digit number. Selected models: 3012, 3045, 3090, 3092')
 parser.add_argument('--analyse-trajectories', action='store_true',
@@ -71,7 +71,7 @@ seed(1234)
 ###########################################################
 # Load experiment
 SEED = args.seed_model_id  # Experiment ID
-config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=0, preselected_checkpoint_idx=0)
+config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0)
 update_config(config, {'env_config': {'mode': 'inference',
                                       'training_map': test_map,  # This controls what is used in the demo part
                                       'domain_rand': False
