@@ -43,7 +43,7 @@ if __name__ == "__main__":
     ###########################################################
     # Read and process command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--seed-model-id', default=3045, type=int,
+    parser.add_argument('-s', '--seed-model-id', default=42, type=int,
                         help='Unique experiment identifier for the config.')
     parser.add_argument('--model-path', default=None, type=str,
                         help='Direct path to the .h5 model. If None, it assumes artifacts/dagger_novice_model_seed{SEED}.h5')
@@ -71,14 +71,24 @@ if __name__ == "__main__":
     update_config(config, {
         'env_config': {
             'mode': 'inference',
-            'training_map': test_map,
-            'domain_rand': False
+            'training_map': DEFAULT_EVALUATION_MAP,
+            "domain_rand": True,
+            "dynamics_rand": True,
+            "camera_rand": True,
+            "grayscale_image":True,
+            "spawn_obstacles": True,
+            "obstacles": {
+                "duckie": {
+                    "density": 0.5,
+                    "static": False,
+                }
+            }
         }
     })
 
     ###########################################################
     # Load Novice Agent (Keras Model)
-    model_path = args.model_path if args.model_path else f"artifacts/dagger_novice_model_seed{SEED}.h5"
+    model_path = args.model_path if args.model_path else f"artifacts/dagger_novice_model_seed_{SEED}_cp1.h5"
     print(f"\n>>> Loading DAgger model from: {model_path}")
     
     if not os.path.exists(model_path):

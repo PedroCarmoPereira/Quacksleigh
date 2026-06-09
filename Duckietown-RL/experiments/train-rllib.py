@@ -45,16 +45,16 @@ config_updates = {"seed": 1118,  # Arbitrary unique identifyer of the run
                                  "spawn_obstacles": True,
                                  "obstacles": {
                                     "duckie": {
-                                        "density": 0.2,
+                                        "density": 0.5,
                                         "static": False,
                                     }
-                                    } ,
+                                    },
                                  },
                   "rllib_config": {
                     "evaluation_interval": None,
                     "num_gpus": 0 # this was the issue, my GPU is incompatible and sillently fails
                   },
-                  "timesteps_total": 2.e+6,
+                  "timesteps_total": 3.e+6,
                   }
 update_config(config, config_updates)
 

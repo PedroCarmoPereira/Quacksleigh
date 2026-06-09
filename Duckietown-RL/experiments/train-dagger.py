@@ -57,9 +57,9 @@ def build_novice_model(input_shape, action_dim):
     return model
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--seed-model-id', default=3045, type=int,
+    parser.add_argument('-s', '--seed-model-id', default=42, type=int,
                         help='Unique experiment identifier for the pre-trained PPO Expert.')
-    parser.add_argument('--map-name', default='ETHZ_autolab_technical_track', help="Specify the training map")
+    parser.add_argument('--map-name', default='multimap1', help="Specify the training map")
     parser.add_argument('--iterations', default=10, type=int, help='Number of DAgger iterations')
     parser.add_argument('--episodes-per-iter', default=15, type=int, help='Episodes to roll out per iteration')
     parser.add_argument('--epochs', default=5, type=int, help='Epochs to train novice per iteration')
@@ -72,14 +72,23 @@ if __name__ == "__main__":
     # 1. Load Expert (PPO) Config & Environment
     print(">>> Loading pre-trained PPO Expert...")
     SEED = args.seed_model_id
-    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=0, preselected_checkpoint_idx=0)
+    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0)
     
     update_config(config, {
         'env_config': {
             'mode': 'inference',
             'training_map': args.map_name,
-            'domain_rand': False,
-            'spawn_forward_obstacle': False
+            "domain_rand": True,
+            "dynamics_rand": True,
+            "camera_rand": True,
+            "grayscale_image":True,
+            "spawn_obstacles": True,
+            "obstacles": {
+                "duckie": {
+                    "density": 0.5,
+                    "static": False,
+                }
+            }
         }
     })
 
@@ -89,7 +98,6 @@ if __name__ == "__main__":
     # 2. Restore Expert Agent
     expert_trainer = PPOTrainer(config=config["rllib_config"])
     expert_trainer.restore(checkpoint_path)
-    print_config(trainer_config := expert_trainer.config)
 
     # 3. Setup Environment & Novice Model
     env = launch_and_wrap_env(config["env_config"])

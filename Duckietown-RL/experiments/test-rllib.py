@@ -38,7 +38,7 @@ os.environ['CUDA_VISIBLE_DEVICES']=''
 ###########################################################
 # Read and process command line arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-s', '--seed-model-id', default=1118, type=int,
+parser.add_argument('-s', '--seed-model-id', default=42, type=int,
                     help='Unique experiment identifier, referred to as seed (incorrectly)'
                          'A 4 digit number. Selected models: 3012, 3045, 3090, 3092')
 parser.add_argument('--analyse-trajectories', action='store_true',
@@ -50,7 +50,7 @@ parser.add_argument('--visualize-dot-trajectories', action='store_true',
 parser.add_argument('--reward-plots', action='store_true',
                     help='Simulate closed loop behaviour and show time-plots of the reward, '
                          'distance between vehicles, etc.')
-parser.add_argument('--map-name', default='loop_dyn_duckiebots', help="Specify the map")
+parser.add_argument('--map-name', default=DEFAULT_EVALUATION_MAP, help="Specify the map")
 parser.add_argument('--domain-rand', action='store_true', help='Enable domain randomization')
 parser.add_argument('--top-view', action='store_true',
                     help="View the simulation from a fixed bird's eye view, instead of the robot's view")
@@ -71,11 +71,22 @@ seed(1234)
 ###########################################################
 # Load experiment
 SEED = args.seed_model_id  # Experiment ID
-config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0)
-update_config(config, {'env_config': {'mode': 'inference',
-                                      'training_map': test_map,  # This controls what is used in the demo part
-                                      'domain_rand': False
-                                      }})
+config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0)
+update_config(config, {"env_config": {
+                                "domain_rand": True,
+                                "training_map": DEFAULT_EVALUATION_MAP,
+                                "dynamics_rand": True,
+                                "camera_rand": True,
+                                "grayscale_image":True,
+                                "spawn_obstacles": True,
+                                "obstacles": {
+                                "duckie": {
+                                    "density": 0.5,
+                                    "static": False,
+                                    }
+                                }
+                            }
+                        })
 
 # Set up env
 ray.init(**config["ray_init_config"])
