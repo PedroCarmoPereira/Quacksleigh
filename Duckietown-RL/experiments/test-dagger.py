@@ -66,7 +66,7 @@ if __name__ == "__main__":
     ###########################################################
     # Load experiment config (Used to initialize the environment perfectly)
     SEED = args.seed_model_id
-    config, _ = find_and_load_config_by_seed(SEED, preselected_experiment_idx=0, preselected_checkpoint_idx=0)
+    config, _ = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0)
     
     update_config(config, {
         'env_config': {
@@ -77,6 +77,7 @@ if __name__ == "__main__":
             "camera_rand": True,
             "grayscale_image":True,
             "spawn_obstacles": True,
+            "spawn_forward_obstacle": False,
             "obstacles": {
                 "duckie": {
                     "density": 0.5,
@@ -88,7 +89,7 @@ if __name__ == "__main__":
 
     ###########################################################
     # Load Novice Agent (Keras Model)
-    model_path = args.model_path if args.model_path else f"artifacts/dagger_novice_model_seed_{SEED}_cp1.h5"
+    model_path = args.model_path if args.model_path else f"artifacts/dagger_model_seed_{SEED}.h5"
     print(f"\n>>> Loading DAgger model from: {model_path}")
     
     if not os.path.exists(model_path):
@@ -125,12 +126,11 @@ if __name__ == "__main__":
         env.close()
 
     ###########################################################
-    # Plot trajectories and evaluate performance
-    if args.analyse_trajectories:
-        config['env_config']['spawn_forward_obstacle'] = False 
-        
-        evaluator = DuckietownWorldEvaluator(config['env_config'], eval_lenght_sec=15, eval_map=test_map)
-        results_path = f"artifacts/EvaluationResults_DAgger_Seed{SEED}"
-        print(f"\n>>> Running Trajectory Analysis. Results will be saved to {results_path}...")
-        
-        evaluator.evaluate(agent, results_path)
+    
+    config['env_config']['spawn_forward_obstacle'] = False 
+    
+    evaluator = DuckietownWorldEvaluator(config['env_config'], eval_lenght_sec=15, eval_map=test_map)
+    results_path = f"artifacts/eval_results_dagger_seed_{SEED}"
+    print(f"\n>>> Running Trajectory Analysis. Results will be saved to {results_path}...")
+    
+    evaluator.evaluate(agent, results_path)
