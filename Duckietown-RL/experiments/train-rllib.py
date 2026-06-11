@@ -1,6 +1,6 @@
 """
-Script for training lane-following agents (including collision avoidance).
-Many properties of the training could be configured by modifying the config_updates dictionary at line 38-42.
+Script for training lane-following agents (including collision avoidance) using Curriculum Learning.
+Many properties of the training could be configured by modifying the config_updates dictionary at line 48.
 For all available configuration options and their description, see config/config.yml and config/algo/ppo.yml
 """
 __license__ = "MIT"
@@ -8,6 +8,7 @@ __copyright__ = "Copyright (c) 2020 András Kalapos"
 ###########################################################
 # Imports
 import os
+import argparse
 from datetime import datetime
 import logging
 import ray
@@ -21,99 +22,189 @@ from config.config import load_config, print_config, dump_config, update_config,
 
 from duckietown_utils.env import launch_and_wrap_env
 from duckietown_utils.utils import seed
-from duckietown_utils.rllib_callbacks import on_episode_start, on_episode_step, on_episode_end, on_train_result
-# from duckietown_utils.rllib_loggers import TensorboardImageLogger, WeightsAndBiasesLogger
+from duckietown_utils.rllib_callbacks import on_episode_start, on_episode_step, on_episode_end
+from duckietown_utils.rllib_callbacks import on_train_result as orig_on_train_result
+from config.curriculum import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 ###########################################################
-# Load config
-config = load_config('./config/config.yml', config_updates={"env_config": {"mode": "train"}})
-# config = load_config('./config/config.yml', config_updates={})
-# Set numpy and random seed
-seed(1234)
-
+# Custom Train Result Callback for Curriculum Advancement
 ###########################################################
-# Set up experiment parameters
-config_updates = {"seed": 1118,  # Arbitrary unique identifyer of the run
-                  "experiment_name": "DomainRandomised",
-                  "env_config": {"domain_rand": True,
-                                 "dynamics_rand": True,
-                                 "camera_rand": True,
-                                 "grayscale_image":True,
-                                 "spawn_obstacles": True,
-                                 "obstacles": {
-                                    "duckie": {
-                                        "density": 0.5,
-                                        "static": False,
-                                    }
+def custom_on_train_result(info):
+    """
+    Evaluates the mean reward and advances the curriculum stage across all Ray workers.
+    """
+    # 1. Call the original callback to maintain histogram/stats clearing logic
+    orig_on_train_result(info)
+    
+    trainer = info["trainer"]
+    result = info["result"]
+    
+    # Initialize curriculum state on the trainer if not present
+    if not hasattr(trainer, "curriculum_stage_idx"):
+        trainer.curriculum_stage_idx = 0
+        trainer.iters_at_stage = 0
+        
+    stage_idx = trainer.curriculum_stage_idx
+    
+    # If we've reached the last stage, do nothing
+    if stage_idx >= len(CURRICULUM) - 1:
+        return
+        
+    stage = CURRICULUM[stage_idx]
+    mean_rwd = result.get("episode_reward_mean", 0.0)
+    threshold = stage["min_reward"]
+    
+    if threshold is not None and mean_rwd >= threshold:
+        trainer.iters_at_stage += 1
+        logger.info(f"  [Curriculum] Above threshold ({mean_rwd:.1f} >= {threshold}) for {trainer.iters_at_stage}/{STAGE_STABILITY} iters.")
+        
+        if trainer.iters_at_stage >= STAGE_STABILITY:
+            trainer.curriculum_stage_idx += 1
+            trainer.iters_at_stage = 0
+            next_stage = CURRICULUM[trainer.curriculum_stage_idx]
+            logger.info(f"  >>> ADVANCING to stage {trainer.curriculum_stage_idx}: {next_stage['label']}")
+            
+            # Define the function to update the environment in-place
+            def set_stage_on_env(env):
+                from duckietown_utils.wrappers.simulator_mod_wrappers import ObstacleSpawningWrapper
+                curr = env
+                while hasattr(curr, 'env'):
+                    if isinstance(curr, ObstacleSpawningWrapper):
+                        curr.env_config['spawn_obstacles'] = next_stage['spawn']
+                        if 'obstacles' not in curr.env_config:
+                            curr.env_config['obstacles'] = {'duckie': {}}
+                        curr.env_config['obstacles']['duckie']['density'] = next_stage['density']
+                        curr.env_config['obstacles']['duckie']['static'] = next_stage['static']
+                        break
+                    curr = curr.env
+                    
+            # Broadcast the update to ALL remote workers and environments
+            trainer.workers.foreach_worker(
+                lambda worker: worker.foreach_env(set_stage_on_env)
+            )
+    else:
+        # Reset stability counter if it dips below threshold
+        trainer.iters_at_stage = 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    # BooleanOptionalAction lets you pass --curriculum or --no-curriculum
+    parser.add_argument('--curriculum', dest='curriculum', action='store_true', default=True,
+                    help='Use curriculum learning (default).')
+    parser.add_argument('--no-curriculum', dest='curriculum', action='store_false',
+                    help='Disable curriculum learning.')
+    
+    args = parser.parse_args()
+
+    ###########################################################
+    # Load config
+    ###########################################################
+    config = load_config('./config/config.yml', config_updates={"env_config": {"mode": "train"}})
+    seed(1234)
+
+    ###########################################################
+    # Set up experiment parameters based on Curriculum Toggle
+    ###########################################################
+    if args.curriculum:
+        # Start at Stage 0 parameters
+        obs_density = CURRICULUM[0]['density']
+        obs_static = CURRICULUM[0]['static']
+        exp_name = "DomainRandomised_Curriculum"
+        train_result_callback = custom_on_train_result
+        logger.info(">>> Curriculum Learning ENABLED. Starting at Stage 0.")
+    else:
+        # Skip curriculum; go straight to target difficulty
+        obs_density = 0.5
+        obs_static = False
+        exp_name = "DomainRandomised_NoCurriculum"
+        train_result_callback = orig_on_train_result
+        logger.info(">>> Curriculum Learning DISABLED. Training on full difficulty.")
+
+    config_updates = {"seed": 1118,  
+                    "experiment_name": exp_name,
+                    "env_config": {"domain_rand": True,
+                                    "dynamics_rand": True,
+                                    "camera_rand": True,
+                                    "grayscale_image": True,
+                                    "spawn_obstacles": True, 
+                                    "obstacles": {
+                                        "duckie": {
+                                            "density": obs_density,
+                                            "static": obs_static,
+                                        }
                                     },
-                                 },
-                  "rllib_config": {
-                    "evaluation_interval": None,
-                    "num_gpus": 0 # this was the issue, my GPU is incompatible and sillently fails
-                  },
-                  "timesteps_total": 3.e+6,
-                  }
-update_config(config, config_updates)
-
-###########################################################
-# Restore training
-if config['restore_seed'] >= 0:
-    pretrained_config, checkpoint_path = \
-        find_and_load_config_by_seed(config['restore_seed'],
-                                     preselected_experiment_idx=config['restore_experiment_idx'],
-                                     preselected_checkpoint_idx=config['restore_checkpoint_idx'])
-    logger.warning("Overwriting config from {}".format(checkpoint_path))
-    config = pretrained_config
+                                    },
+                    "rllib_config": {
+                        "evaluation_interval": None,
+                        "num_gpus": 0 
+                    },
+                    "timesteps_total": 2.e+6,
+                    }
     update_config(config, config_updates)
-else:
-    checkpoint_path = None
 
-###########################################################
-# Print config
-print_config(config)
+    ###########################################################
+    # Restore training
+    ###########################################################
+    if config['restore_seed'] >= 0:
+        pretrained_config, checkpoint_path = \
+            find_and_load_config_by_seed(config['restore_seed'],
+                                        preselected_experiment_idx=config['restore_experiment_idx'],
+                                        preselected_checkpoint_idx=config['restore_checkpoint_idx'])
+        logger.warning("Overwriting config from {}".format(checkpoint_path))
+        config = pretrained_config
+        update_config(config, config_updates)
+    else:
+        checkpoint_path = None
 
-###########################################################
-# Setup paths
-paths = ArtifactPaths(config['experiment_name'], config['seed'], algo_name=config['algo'])
+    ###########################################################
+    # Print config
+    ###########################################################
+    print_config(config)
 
-###########################################################
-# Code backup
-os.system('cp -ar ./duckietown_utils {}/'.format(paths.code_backup_path))
-os.system('cp -ar ./experiments {}/'.format(paths.code_backup_path))
-os.system('cp -ar ./config {}/'.format(paths.code_backup_path))
+    ###########################################################
+    # Setup paths
+    ###########################################################
+    paths = ArtifactPaths(config['experiment_name'], config['seed'], algo_name=config['algo'])
 
-###########################################################
-# Set up env and training config
-ray.init(**config["ray_init_config"])
-register_env('Duckietown', launch_and_wrap_env)
-config["rllib_config"].update({'env': 'Duckietown',
-                               'callbacks': {'on_episode_start': on_episode_start,
-                                             'on_episode_step': on_episode_step,
-                                             'on_episode_end': on_episode_end,
-                                             'on_train_result': on_train_result},
-                               "env_config": config["env_config"],
-                               })
-dump_config(config, paths.experiment_base_path)
+    ###########################################################
+    # Code backup
+    ###########################################################
+    os.system('cp -ar ./duckietown_utils {}/'.format(paths.code_backup_path))
+    os.system('cp -ar ./experiments {}/'.format(paths.code_backup_path))
+    os.system('cp -ar ./config {}/'.format(paths.code_backup_path))
 
-# Create an temporary PPO trainer to print the modell architecture (there should be a better way to do this)
-# PPOTrainer(config=config["rllib_config"]).get_policy().model.base_model.summary()
+    ###########################################################
+    # Set up env and training config
+    ###########################################################
+    ray.init(**config["ray_init_config"])
+    register_env('Duckietown', launch_and_wrap_env)
 
-###########################################################
-# Run the training
-tune.run(PPOTrainer,
-         stop={'timesteps_total': config["timesteps_total"]},
-         config=config["rllib_config"],
-         local_dir="./artifacts",
-         checkpoint_at_end=True,
-         trial_name_creator=lambda trial: trial.trainable_name,  # for PPO this will make experiment dirs start with PPO_
-         name=paths.experiment_folder,
-         keep_checkpoints_num=1,
-         checkpoint_score_attr="episode_reward_mean",
-         checkpoint_freq=1,
-         restore=checkpoint_path,
-         loggers=[CSVLogger, TBXLogger]
-         )
+    config["rllib_config"].update({'env': 'Duckietown',
+                                'callbacks': {'on_episode_start': on_episode_start,
+                                              'on_episode_step': on_episode_step,
+                                              'on_episode_end': on_episode_end,
+                                              'on_train_result': train_result_callback},  # Injects the proper callback dynamically
+                                "env_config": config["env_config"],
+                                })
+    dump_config(config, paths.experiment_base_path)
 
+    ###########################################################
+    # Run the training
+    ###########################################################
+    tune.run(PPOTrainer,
+            stop={'timesteps_total': config["timesteps_total"]},
+            config=config["rllib_config"],
+            local_dir="./artifacts",
+            checkpoint_at_end=True,
+            trial_name_creator=lambda trial: trial.trainable_name,  
+            name=paths.experiment_folder,
+            keep_checkpoints_num=1,
+            checkpoint_score_attr="episode_reward_mean",
+            checkpoint_freq=1,
+            restore=checkpoint_path,
+            loggers=[CSVLogger, TBXLogger]
+            )
