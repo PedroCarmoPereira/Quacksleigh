@@ -113,10 +113,15 @@ if __name__ == "__main__":
     ###########################################################
     # Set up experiment parameters based on Curriculum Toggle
     ###########################################################
+
+    resume_stage = 0
+    if args.resume_stage:
+        resume_stage = args.resume_stage
+
     if args.curriculum:
         # Start at Stage 0 parameters
-        obs_density = CURRICULUM[0]['density']
-        obs_static = CURRICULUM[0]['static']
+        obs_density = CURRICULUM[resume_stage]['density']
+        obs_static = CURRICULUM[resume_stage]['static']
         exp_name = "DomainRandomised_Curriculum"
         train_result_callback = custom_on_train_result
         logger.info(">>> Curriculum Learning ENABLED. Starting at Stage 0.")
@@ -138,7 +143,7 @@ if __name__ == "__main__":
                                     "camera_rand": True,
                                     "grayscale_image": True,
                                     "spawn_obstacles": True,
-                                    "resume_stage": args.resume_stage,
+                                    "resume_stage": resume_stage,
                                     "obstacles": {
                                         "duckie": {
                                             "density": obs_density,
