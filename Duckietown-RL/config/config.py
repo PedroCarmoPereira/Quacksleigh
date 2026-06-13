@@ -96,19 +96,25 @@ def update_config(config: dict, config_updates: dict):
     if 'env_config' in config['rllib_config'].keys():
         config['rllib_config']['env_config'].update(config['env_config'])
 
-
 def find_and_load_config_by_seed(seed, artifact_root="./artifacts",
-                                 preselected_experiment_idx=None, preselected_checkpoint_idx=None):
+                                 preselected_experiment_idx=None, preselected_checkpoint_idx=None,
+                                 experiment_name_filter=None):
     logger.warning("Found paths with seed {}:".format(str(seed)))
-    config_dump_path = _find_and_select_experiment(artifact_root + '/**/config_dump_{:04d}.yml'.format(seed),
-                                                   preselected_experiment_idx)
+    
+    # Strictly target curriculum paths if the filter is provided
+    if experiment_name_filter:
+        search_pattern = artifact_root + f'/**/*{experiment_name_filter}*/**/config_dump_{seed:04d}.yml'
+    else:
+        search_pattern = artifact_root + f'/**/config_dump_{seed:04d}.yml'
+        
+    config_dump_path = _find_and_select_experiment(search_pattern, preselected_experiment_idx)
 
     # Multiple checkpoints might be saved under the same experiment folder
     logger.warning("Found checkpoints in {}:".format(os.path.dirname(config_dump_path)))
+    
     # *[0-9] makes sure that the last character is a number --> the .tune_metadata files are excluded
-    checkpoint_path = _find_and_select_experiment(
-        os.path.dirname(config_dump_path) + '/**/checkpoint-*[0-9]'.format(seed),
-        preselected_checkpoint_idx)
+    checkpoint_search = os.path.dirname(config_dump_path) + '/**/checkpoint-*[0-9]'
+    checkpoint_path = _find_and_select_experiment(checkpoint_search, preselected_checkpoint_idx)
 
     loaded_config = load_config(config_dump_path, update_algo_hparams_from_algo_conf_file=False)
     logger.warning("Config loaded from {}".format(config_dump_path))

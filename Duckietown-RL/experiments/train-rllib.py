@@ -44,7 +44,8 @@ def custom_on_train_result(info):
     
     # Initialize curriculum state on the trainer if not present
     if not hasattr(trainer, "curriculum_stage_idx"):
-        trainer.curriculum_stage_idx = 0
+        # Pull the stage from the config we passed down, rather than defaulting to 0
+        trainer.curriculum_stage_idx = trainer.config["env_config"].get("resume_stage", 0)
         trainer.iters_at_stage = 0
         
     stage_idx = trainer.curriculum_stage_idx
@@ -97,6 +98,9 @@ if __name__ == "__main__":
                     help='Use curriculum learning (default).')
     parser.add_argument('--no-curriculum', dest='curriculum', action='store_false',
                     help='Disable curriculum learning.')
+
+    parser.add_argument('--resume-seed', default=-1, type=int, help='Seed to resume training from.')
+    parser.add_argument('--resume-stage', default=0, type=int, help='Curriculum stage to resume from.')
     
     args = parser.parse_args()
 
@@ -126,11 +130,15 @@ if __name__ == "__main__":
 
     config_updates = {"seed": 1118,  
                     "experiment_name": exp_name,
+                    "restore_seed": 1118,
+                    "restore_experiment_idx": 0,
+                    "restore_checkpoint_idx": 1,
                     "env_config": {"domain_rand": True,
                                     "dynamics_rand": True,
                                     "camera_rand": True,
                                     "grayscale_image": True,
-                                    "spawn_obstacles": True, 
+                                    "spawn_obstacles": True,
+                                    "resume_stage": args.resume_stage,
                                     "obstacles": {
                                         "duckie": {
                                             "density": obs_density,
@@ -149,11 +157,13 @@ if __name__ == "__main__":
     ###########################################################
     # Restore training
     ###########################################################
-    if config['restore_seed'] >= 0:
+    restore_seed = args.resume_seed if args.resume_seed >= 0 else config.get('restore_seed', -1)
+    if restore_seed >= 0:
         pretrained_config, checkpoint_path = \
-            find_and_load_config_by_seed(config['restore_seed'],
-                                        preselected_experiment_idx=config['restore_experiment_idx'],
-                                        preselected_checkpoint_idx=config['restore_checkpoint_idx'])
+            find_and_load_config_by_seed(restore_seed,
+                                         experiment_name_filter="Curriculum" if args.curriculum else None,
+                                         preselected_experiment_idx=config.get('restore_experiment_idx'),
+                                         preselected_checkpoint_idx=config.get('restore_checkpoint_idx'))
         logger.warning("Overwriting config from {}".format(checkpoint_path))
         config = pretrained_config
         update_config(config, config_updates)
