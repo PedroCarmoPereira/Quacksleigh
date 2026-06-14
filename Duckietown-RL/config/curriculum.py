@@ -1,6 +1,7 @@
 from copy import deepcopy
 from duckietown_utils.env import launch_and_wrap_env
 from duckietown_utils.wrappers.simulator_mod_wrappers import ObstacleSpawningWrapper
+from duckietown_utils.rllib_callbacks import on_train_result as orig_on_train_result
 
 # Thresholds are env-specific — tune these empirically.
 # None on the last stage means "never auto-advance".
@@ -19,9 +20,8 @@ def custom_on_train_result(info):
     """
     Evaluates the mean reward and advances the curriculum stage across all Ray workers.
     """
-    # 1. Call the original callback to maintain histogram/stats clearing logic
+    # 1. Call the original callback to maintain histogram/stats clearing logi
     orig_on_train_result(info)
-    
     trainer = info["trainer"]
     result = info["result"]
     
@@ -32,6 +32,8 @@ def custom_on_train_result(info):
         trainer.iters_at_stage = 0
         
     stage_idx = trainer.curriculum_stage_idx
+
+    result["curriculum_stage"] = stage_idx
     
     # If we've reached the last stage, do nothing
     if stage_idx >= len(CURRICULUM) - 1:
@@ -43,6 +45,8 @@ def custom_on_train_result(info):
     
     if threshold is not None and mean_rwd >= threshold:
         trainer.iters_at_stage += 1
+        import logging
+        logger = logging.getLogger(__name__)
         logger.info(f"  [Curriculum] Above threshold ({mean_rwd:.1f} >= {threshold}) for {trainer.iters_at_stage}/{STAGE_STABILITY} iters.")
         
         if trainer.iters_at_stage >= STAGE_STABILITY:
@@ -69,6 +73,9 @@ def custom_on_train_result(info):
             trainer.workers.foreach_worker(
                 lambda worker: worker.foreach_env(set_stage_on_env)
             )
+            
+            # Update the result dictionary so the jump is immediately logged on this iteration
+            result["curriculum_stage"] = trainer.curriculum_stage_idx
     else:
         # Reset stability counter if it dips below threshold
         trainer.iters_at_stage = 0

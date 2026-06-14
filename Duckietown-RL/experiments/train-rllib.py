@@ -73,9 +73,6 @@ if __name__ == "__main__":
 
     config_updates = {"seed": 1118,  
                     "experiment_name": exp_name,
-                    "restore_seed": 1118,
-                    "restore_experiment_idx": 0,
-                    "restore_checkpoint_idx": 1,
                     "env_config": {"domain_rand": True,
                                     "dynamics_rand": True,
                                     "camera_rand": True,
@@ -155,7 +152,7 @@ if __name__ == "__main__":
             checkpoint_at_end=True,
             trial_name_creator=lambda trial: trial.trainable_name,  
             name=paths.experiment_folder,
-            keep_checkpoints_num=1,
+            keep_checkpoints_num=2,
             checkpoint_score_attr="episode_reward_mean",
             checkpoint_freq=1,
             restore=checkpoint_path,
