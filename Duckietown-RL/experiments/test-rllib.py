@@ -21,6 +21,7 @@ from ray.tune.registry import register_env
 from ray.rllib.agents.ppo import PPOTrainer
 from gym.wrappers import Monitor
 
+from config.curriculum import *
 from config.config import find_and_load_config_by_seed, update_config, print_config
 from config.paths import ArtifactPaths
 from duckietown_utils.env import launch_and_wrap_env, get_wrappers
@@ -57,6 +58,10 @@ parser.add_argument('--top-view', action='store_true',
 parser.add_argument('--results-path', default='default', type=str,
                     help='Analysis results are saved to this folder. If \'default\' is given, results are saved to '
                          'the path of the loaded model.')
+parser.add_argument('--curriculum', dest='curriculum', action='store_true', default=True,
+                    help='Use curriculum learning (default).')
+parser.add_argument('--no-curriculum', dest='curriculum', action='store_false',
+                    help='Disable curriculum learning.')
 args = parser.parse_args()
 
 if args.top_view:
@@ -68,10 +73,14 @@ test_map = args.map_name
 
 seed(1234)
 
+filt = None
+if args.curriculum:
+    filt = 'Curriculum'
+
 ###########################################################
 # Load experiment
 SEED = args.seed_model_id  # Experiment ID
-config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0)
+config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0, experiment_name_filter=filt)
 update_config(config, {"env_config": {
                                 "domain_rand": True,
                                 "training_map": DEFAULT_EVALUATION_MAP,

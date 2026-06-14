@@ -29,68 +29,6 @@ from config.curriculum import *
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-###########################################################
-# Custom Train Result Callback for Curriculum Advancement
-###########################################################
-def custom_on_train_result(info):
-    """
-    Evaluates the mean reward and advances the curriculum stage across all Ray workers.
-    """
-    # 1. Call the original callback to maintain histogram/stats clearing logic
-    orig_on_train_result(info)
-    
-    trainer = info["trainer"]
-    result = info["result"]
-    
-    # Initialize curriculum state on the trainer if not present
-    if not hasattr(trainer, "curriculum_stage_idx"):
-        # Pull the stage from the config we passed down, rather than defaulting to 0
-        trainer.curriculum_stage_idx = trainer.config["env_config"].get("resume_stage", 0)
-        trainer.iters_at_stage = 0
-        
-    stage_idx = trainer.curriculum_stage_idx
-    
-    # If we've reached the last stage, do nothing
-    if stage_idx >= len(CURRICULUM) - 1:
-        return
-        
-    stage = CURRICULUM[stage_idx]
-    mean_rwd = result.get("episode_reward_mean", 0.0)
-    threshold = stage["min_reward"]
-    
-    if threshold is not None and mean_rwd >= threshold:
-        trainer.iters_at_stage += 1
-        logger.info(f"  [Curriculum] Above threshold ({mean_rwd:.1f} >= {threshold}) for {trainer.iters_at_stage}/{STAGE_STABILITY} iters.")
-        
-        if trainer.iters_at_stage >= STAGE_STABILITY:
-            trainer.curriculum_stage_idx += 1
-            trainer.iters_at_stage = 0
-            next_stage = CURRICULUM[trainer.curriculum_stage_idx]
-            logger.info(f"  >>> ADVANCING to stage {trainer.curriculum_stage_idx}: {next_stage['label']}")
-            
-            # Define the function to update the environment in-place
-            def set_stage_on_env(env):
-                from duckietown_utils.wrappers.simulator_mod_wrappers import ObstacleSpawningWrapper
-                curr = env
-                while hasattr(curr, 'env'):
-                    if isinstance(curr, ObstacleSpawningWrapper):
-                        curr.env_config['spawn_obstacles'] = next_stage['spawn']
-                        if 'obstacles' not in curr.env_config:
-                            curr.env_config['obstacles'] = {'duckie': {}}
-                        curr.env_config['obstacles']['duckie']['density'] = next_stage['density']
-                        curr.env_config['obstacles']['duckie']['static'] = next_stage['static']
-                        break
-                    curr = curr.env
-                    
-            # Broadcast the update to ALL remote workers and environments
-            trainer.workers.foreach_worker(
-                lambda worker: worker.foreach_env(set_stage_on_env)
-            )
-    else:
-        # Reset stability counter if it dips below threshold
-        trainer.iters_at_stage = 0
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # BooleanOptionalAction lets you pass --curriculum or --no-curriculum
