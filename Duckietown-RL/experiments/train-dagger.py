@@ -49,6 +49,10 @@ def build_novice_model(input_shape, action_dim):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # BooleanOptionalAction lets you pass --curriculum or --no-curriculum
+    parser.add_argument('--curriculum-base', dest='curriculum_base', action='store_true', default=True,
+                    help='Use curriculum learning (default).')
+    parser.add_argument('--no-curriculum-base', dest='curriculum_base', action='store_false',
+                    help='Disable curriculum learning.')
     parser.add_argument('--curriculum', dest='curriculum', action='store_true', default=True,
                     help='Use curriculum learning (default).')
     parser.add_argument('--no-curriculum', dest='curriculum', action='store_false',
@@ -63,10 +67,14 @@ if __name__ == "__main__":
 
     seed(1234)
 
+    filt = None
+    if args.curriculum_base:
+        filt = 'Curriculum'
+
     print(">>> Loading pre-trained PPO Expert...")
     SEED = args.seed_model_id
-    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0)
-
+    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0, experiment_name_filter=filt)
+    
     update_config(config, {
         'env_config': {
             'mode': 'inference',
@@ -111,6 +119,23 @@ if __name__ == "__main__":
     if args.curriculum:
         advance_stage(config["env_config"], CURRICULUM[stage_idx])
         print(f">>> Starting curriculum stage 0: {CURRICULUM[0]['label']}")
+        if args.curriculum_base:
+            checkpoint_path = f"artifacts/dagger_model_seed_{SEED}_cur_both_best.h5"
+            final_save_path = f"artifacts/dagger_model_seed_{SEED}_cur_both.h5"
+            csv_path = f'artifacts/dagger_model_seed_{SEED}_cur_both_progress.csv'
+        else:
+            checkpoint_path = f"artifacts/dagger_model_seed_{SEED}_cur_dag_best.h5"
+            final_save_path = f"artifacts/dagger_model_seed_{SEED}_cur_dag.h5"
+            csv_path = f'artifacts/dagger_model_seed_{SEED}_cur_dag_progress.csv'
+    else:
+        if args.curriculum_base:
+            checkpoint_path = f"artifacts/dagger_model_seed_{SEED}_cur_ppo_best.h5"
+            final_save_path = f"artifacts/dagger_model_seed_{SEED}_cur_ppo.h5"
+            csv_path = f'artifacts/dagger_model_seed_{SEED}_cur_ppo_progress.csv'
+        else:
+            checkpoint_path = f"artifacts/dagger_model_seed_{SEED}_best.h5"
+            final_save_path = f"artifacts/dagger_model_seed_{SEED}.h5"
+            csv_path = f'artifacts/dagger_model_seed_{SEED}_progress.csv'
 
     it = 0
     while it < args.iterations:
@@ -196,10 +221,7 @@ if __name__ == "__main__":
         # Checkpointing
         if mean_rwd > cur_max_rwd:
             cur_max_rwd = mean_rwd
-            if args.curriculum:
-                novice_model.save(f"artifacts/dagger_model_seed_{SEED}_cur_best.h5")
-            else:
-                novice_model.save(f"artifacts/dagger_model_seed_{SEED}_best.h5")
+            novice_model.save(checkpoint_path)
             print(f"New best model saved (mean reward: {mean_rwd:.2f})")
 
         # Incremental CSV
@@ -211,7 +233,7 @@ if __name__ == "__main__":
             'episode_reward_min':  np.min(iter_rewards),
             'beta':                beta,
         }])
-        csv_path = f'artifacts/dagger_model_seed_{SEED}_progress.csv'
+
         row.to_csv(csv_path, mode='a', header=not os.path.exists(csv_path), index=False)
 
         # Training phase
@@ -231,11 +253,7 @@ if __name__ == "__main__":
         it += 1
 
     # Final save
-    if args.curriculum:
-        save_path = f"artifacts/dagger_model_seed_{SEED}_cur.h5"
-    else:
-        save_path = f"artifacts/dagger_model_seed_{SEED}.h5"
-    novice_model.save(save_path)
-    print(f"\n>>> DAgger training complete! Model saved to: {save_path}")
+    novice_model.save(final_save_path)
+    print(f"\n>>> DAgger training complete! Model saved to: {final_save_path}")
 
     env.close()

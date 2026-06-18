@@ -67,7 +67,7 @@ if __name__ == "__main__":
         # Skip curriculum; go straight to target difficulty
         obs_density = 0.5
         obs_static = False
-        exp_name = "DomainRandomised_NoCurriculum"
+        exp_name = "DomainRandomised"
         train_result_callback = orig_on_train_result
         logger.info(">>> Curriculum Learning DISABLED. Training on full difficulty.")
 
