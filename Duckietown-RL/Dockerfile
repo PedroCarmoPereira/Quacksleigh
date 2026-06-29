@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── Pyglet rendering fix ──
 RUN /home/duckie/miniconda3/envs/dtaido5/bin/pip install --no-cache-dir "pyglet>=1.5,<2"
+RUN /home/duckie/miniconda3/envs/dtaido5/bin/pip install --no-cache-dir "opencv-python==4.5.5.64"
+
 
 # ── EGL vendor config (for NVIDIA headless GL) ──
 RUN mkdir -p /usr/share/glvnd/egl_vendor.d && \

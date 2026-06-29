@@ -4,7 +4,7 @@ cloudpickle==1.2.2
 GPUtil==1.4.0
 grpcio==1.27.2
 gym==0.15.4
-opencv-python==4.2.0.34
+opencv-python==4.5.5.64
 ray[rllib]==0.8.2
 ray[debug]==0.8.2
 pandas==1.0.1

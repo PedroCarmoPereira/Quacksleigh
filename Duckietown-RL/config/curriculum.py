@@ -11,7 +11,7 @@ CURRICULUM = [
     {'density': 0.3, 'static': False, 'spawn': True,  'min_reward': 100,  'label': 'Moving obstacles (sparse)'},
     {'density': 0.5, 'static': False, 'spawn': True,  'min_reward': None,'label': 'Full difficulty'},
 ]
-STAGE_STABILITY = 2  # consecutive iters above threshold before advancin
+STAGE_STABILITY = 4  # consecutive iters above threshold before advancin
 
 ###########################################################
 # Custom Train Result Callback for Curriculum Advancement

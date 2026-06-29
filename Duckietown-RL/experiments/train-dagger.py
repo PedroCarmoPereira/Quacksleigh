@@ -63,6 +63,14 @@ if __name__ == "__main__":
     parser.add_argument('--episodes-per-iter', default=30, type=int)
     parser.add_argument('--epochs', default=5, type=int)
     parser.add_argument('--batch-size', default=64, type=int)
+    parser.add_argument('-e', '--experiment-idx', default=0, type=int,
+                    help='Experiment Id')
+    parser.add_argument('-c', '--checkpoint-idx', default=0, type=int,
+                        help='Checkpoint Id')
+    parser.add_argument('--grayscale', dest='grayscale', default=True, action='store_true',
+                    help='Grayscale')
+    parser.add_argument('--color', '--no-grayscale', dest='grayscale', action='store_false',
+                    help='No Grayscale')
     args = parser.parse_args()
 
     seed(1234)
@@ -73,7 +81,7 @@ if __name__ == "__main__":
 
     print(">>> Loading pre-trained PPO Expert...")
     SEED = args.seed_model_id
-    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=2, preselected_checkpoint_idx=0, experiment_name_filter=filt)
+    config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=args.experiment_idx, preselected_checkpoint_idx=args.checkpoint_idx, experiment_name_filter=filt)
     
     update_config(config, {
         'env_config': {
@@ -82,7 +90,7 @@ if __name__ == "__main__":
             "domain_rand": True,
             "dynamics_rand": True,
             "camera_rand": True,
-            "grayscale_image": True,
+            "grayscale_image": args.grayscale,
             "spawn_obstacles": True,
             "obstacles": {"duckie": {"density": 0.5, "static": False}}
         }
@@ -104,7 +112,7 @@ if __name__ == "__main__":
     os.makedirs("artifacts", exist_ok=True)
 
 
-    MAX_BUFFER_SIZE = 50000 
+    MAX_BUFFER_SIZE = 10000 
     dataset_obs     = deque(maxlen=MAX_BUFFER_SIZE)
     dataset_actions = deque(maxlen=MAX_BUFFER_SIZE)
     beta            = 1.0

@@ -62,6 +62,14 @@ parser.add_argument('--curriculum', dest='curriculum', action='store_true', defa
                     help='Use curriculum learning (default).')
 parser.add_argument('--no-curriculum', dest='curriculum', action='store_false',
                     help='Disable curriculum learning.')
+parser.add_argument('-e', '--experiment-idx', default=0, type=int,
+                    help='Experiment Id')
+parser.add_argument('-c', '--checkpoint-idx', default=0, type=int,
+                    help='Checkpoint Id')
+parser.add_argument('--grayscale', dest='grayscale', default=True, action='store_true',
+                help='Grayscale')
+parser.add_argument('--color', '--no-grayscale', dest='grayscale', action='store_false',
+                help='No Grayscale')
 args = parser.parse_args()
 
 if args.top_view:
@@ -80,13 +88,13 @@ if args.curriculum:
 ###########################################################
 # Load experiment
 SEED = args.seed_model_id  # Experiment ID
-config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=1, preselected_checkpoint_idx=0, experiment_name_filter=filt)
+config, checkpoint_path = find_and_load_config_by_seed(SEED, preselected_experiment_idx=args.experiment_idx, preselected_checkpoint_idx=args.checkpoint_idx, experiment_name_filter=filt)
 update_config(config, {"env_config": {
                                 "domain_rand": True,
                                 "training_map": DEFAULT_EVALUATION_MAP,
                                 "dynamics_rand": True,
                                 "camera_rand": True,
-                                "grayscale_image":True,
+                                "grayscale_image":args.grayscale,
                                 "spawn_obstacles": True,
                                 "obstacles": {
                                 "duckie": {
@@ -114,7 +122,7 @@ print_config(trainer.config)
 if not (args.analyse_trajectories or args.visualize_salient_obj or args.reward_plots or args.visualize_dot_trajectories):
     # env = Monitor(env, "gym_monitor_results", write_upon_reset=True, force=True)
     env = launch_and_wrap_env(config["env_config"])
-    for i in range(5):
+    for i in range(25):
         obs = env.reset()
         env.render(render_mode)
         done = False
@@ -139,7 +147,7 @@ if args.analyse_trajectories:
         results_path = os.path.split(checkpoint_path)[0]
     else:
         results_path = args.results_path
-    evaluator.evaluate(trainer, results_path)
+    evaluator.evaluate(trainer, results_path, episodes=25)
 
 ###########################################################
 # Visualize salient map

@@ -39,6 +39,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--resume-seed', default=-1, type=int, help='Seed to resume training from.')
     parser.add_argument('--resume-stage', default=0, type=int, help='Curriculum stage to resume from.')
+    parser.add_argument('-e', '--experiment-idx', default=0, type=int,
+                    help='Experiment Id')
+    parser.add_argument('-c', '--checkpoint-idx', default=0, type=int,
+                        help='Checkpoint Id')
     
     args = parser.parse_args()
 

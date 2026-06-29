@@ -13,6 +13,10 @@ from duckietown_utils.wrappers.reward_wrappers import *
 from duckietown_utils.wrappers.simulator_mod_wrappers import *
 from duckietown_utils.wrappers.aido_wrapper import AIDOWrapper
 from config.config import load_config
+import cv2
+import os
+import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +210,100 @@ def get_wrappers(wrapped_env):
 
     return obs_wrappers[::-1], action_wrappers[::-1], reward_wrappers[::-1]
 
+# ======================================================================
+# OpenCV YOLO Feature Extractor Wrapper
+# ======================================================================
+class YoloCV2BackboneWrapper(gym.ObservationWrapper):
+    """
+    Intercepts the 9-channel stacked Duckietown observation, splits it into 3 frames,
+    runs each through an ONNX YOLO model using OpenCV, and outputs the concatenated features.
+    """
+    def __init__(self, env, yolo_onnx_path):
+        super(YoloCV2BackboneWrapper, self).__init__(env)
+        
+        if not os.path.exists(yolo_onnx_path):
+            raise FileNotFoundError(f"YOLO ONNX model not found at {yolo_onnx_path}")
+            
+        print(f"\n>>> Loading OpenCV YOLO Backbone from {yolo_onnx_path}...")
+        self.net = cv2.dnn.readNetFromONNX(yolo_onnx_path)
+        
+        # The final feature map right before the YOLO detection head
+        self.feature_layer = '/model.21/cv2/act/Mul_output_0' 
+        
+        # Run a dummy pass to find the exact shape of this intermediate layer
+        dummy_img = np.zeros((416, 416, 3), dtype=np.uint8)
+        blob = cv2.dnn.blobFromImage(dummy_img, 1/255.0, (416, 416), swapRB=True, crop=False)
+        self.net.setInput(blob)
+        out = self.net.forward(self.feature_layer)[0] # Grab the first item (C, H, W)
+        
+        self.num_channels = out.shape[0] # Channels is the first dimension here
+        
+        # We will pool the spatial dimensions down to 4x4 to save memory
+        self.target_spatial_size = (4, 4)
+        
+        # Calculate the new flattened size per frame: Channels * 4 * 4
+        self.flat_size = self.num_channels * self.target_spatial_size[0] * self.target_spatial_size[1]
+        
+        # We are processing 3 frames, so our final 1D vector is 3x the size
+        self.stack_size = 3
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, 
+            high=np.inf, 
+            shape=(self.flat_size * self.stack_size,), 
+            dtype=np.float32
+        )
+
+    def observation(self, obs):
+        # Safely handle potential empty frames during resets
+        if obs is None or obs.size == 0:
+            return np.zeros((self.num_channels * self.stack_size,), dtype=np.float32)
+        obs = obs.astype(np.float32)
+        # `obs` is a 9-channel array from Gym's ObservationBufferWrapper
+        # We slice it into three separate 3-channel RGB images
+        frame_1 = obs[:, :, 0:3]
+        frame_2 = obs[:, :, 3:6]
+        frame_3 = obs[:, :, 6:9]
+
+        feature_list = []
+        
+        for frame in [frame_1, frame_2, frame_3]:
+            # Convert RGB to BGR for YOLO
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+            # Create blob and extract features
+            blob = cv2.dnn.blobFromImage(bgr_frame, 1, (416, 416), swapRB=True, crop=False)
+            self.net.setInput(blob)
+            
+            # features shape is (Channels, Height, Width)
+            features = self.net.forward(self.feature_layer)[0] 
+            C, H, W = features.shape
+            
+            # Resize each channel individually to bypass OpenCV's 4-channel limit
+            pooled_channels = []
+            for c in range(C):
+                pooled_c = cv2.resize(features[c], self.target_spatial_size, interpolation=cv2.INTER_AREA)
+                pooled_channels.append(pooled_c)
+            
+            # Stack back into a (Channels, 4, 4) array
+            pooled_features = np.stack(pooled_channels, axis=0)
+            
+            # Flatten the pooled array
+            flat_features = pooled_features.flatten()
+            feature_list.append(flat_features)
+            
+        # Concatenate the 3 feature vectors into one long 1D vector
+        final_stacked_features = np.concatenate(feature_list)
+        
+        return final_stacked_features.astype(np.float32)
+
+# ======================================================================
+# Environment Launch Wrapper
+# ======================================================================
+def launch_and_wrap_yolo_env(env_config):
+    """Launches the standard env and appends our custom OpenCV wrapper."""
+    env = launch_and_wrap_env(env_config)
+    yolo_path = env_config.get("yolo_onnx_path", "artifacts/model_yolo/best.onnx")
+    return YoloCV2BackboneWrapper(env, yolo_path)
 
 if __name__ == "__main__":
     # execute only if run as a script to test some functionality
